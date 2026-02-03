@@ -674,14 +674,17 @@ export class ImportCommand implements ISlashCommand {
 
     private async downloadFile(http: IHttp, baseUrl: string, token: string, fileId: string): Promise<Buffer | null> {
         try {
+            // Try to get file as base64 from Mattermost (avoids binary corruption)
             const response = await http.get(`${baseUrl}/api/v4/files/${fileId}`, {
-                headers: { 'Authorization': `Bearer ${token}` },
-                encoding: null, // Get raw binary data
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
             });
 
             if (response.statusCode === 200 && response.content) {
-                // Convert the response content to a Buffer
-                return Buffer.from(response.content, 'binary');
+                // RC Apps Engine returns content as string, which corrupts binary
+                // Try to convert from latin1/binary encoding
+                return Buffer.from(response.content, 'latin1');
             }
 
             return null;
