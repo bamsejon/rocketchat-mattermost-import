@@ -5,12 +5,13 @@ A Rocket.Chat app that imports channel history from Mattermost using a simple sl
 ## Features
 
 - Import complete channel history from Mattermost to Rocket.Chat
+- **Threading support** - Replies are imported as proper thread replies in Rocket.Chat
 - **Incremental sync** - Only imports new messages on subsequent runs (no duplicates)
 - **Two authentication modes** - User credentials or admin token
 - **Permission control** - Restrict who can use the import command
 - Preserves original timestamps and usernames
 - Shows progress during import
-- Handles file attachments (as links)
+- Handles file attachments (uploads to Rocket.Chat)
 - Skips system messages automatically
 
 ## Installation
@@ -85,9 +86,12 @@ The app tracks which messages have been imported per room/channel combination:
 Imported messages appear with the format:
 
 ```
-[DisplayName (username) YYYY-MM-DD HH:MM]
+**DisplayName (username) — YYYY-MM-DD HH:MM**
+
 Original message content
 ```
+
+Threaded replies are automatically linked to their parent messages.
 
 ## Permissions Required
 
@@ -102,6 +106,18 @@ Original message content
 - Mattermost: v10.x (tested with 10.12.4)
 
 ## Changelog
+
+### v2.3.0
+- Fixed message header format to avoid markdown parsing issues
+- Added double newline between header and content for better compatibility
+
+### v2.2.0
+- Added threading support - replies are now imported as thread replies
+- Shows threaded reply count in import summary
+
+### v2.1.0
+- Fixed incremental import persistence
+- Added persistence permission
 
 ### v2.0.0
 - Added incremental sync (only imports new messages)
