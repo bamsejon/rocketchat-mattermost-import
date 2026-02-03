@@ -1,4 +1,21 @@
 {
     "import_description": "Importera kanalhistorik från Mattermost",
-    "import_params_example": "<kanal-url> <användarnamn> <lösenord>"
+    "import_params_example": "<kanal-url> [användarnamn] [lösenord]",
+
+    "setting_auth_mode_label": "Autentiseringsläge",
+    "setting_auth_mode_description": "Välj hur användare autentiserar mot Mattermost",
+    "setting_auth_mode_user": "Användaren anger inloggningsuppgifter",
+    "setting_auth_mode_token": "Använd admin-token",
+
+    "setting_mattermost_url_label": "Mattermost URL (valfritt)",
+    "setting_mattermost_url_description": "Bas-URL för Mattermost-servern (t.ex. https://mattermost.example.com). Valfritt - kan extraheras från kanal-URL.",
+
+    "setting_admin_token_label": "Admin-token",
+    "setting_admin_token_description": "Mattermost personlig åtkomsttoken för import. Krävs vid admin-token-läge. Skapa i Mattermost: Profil > Säkerhet > Personliga åtkomsttoken.",
+
+    "setting_allowed_roles_label": "Tillåtna roller",
+    "setting_allowed_roles_description": "Kommaseparerad lista med roller som får använda importkommandot (t.ex. admin, moderator)",
+
+    "setting_allowed_users_label": "Tillåtna användare",
+    "setting_allowed_users_description": "Kommaseparerad lista med användarnamn som får använda importkommandot (utöver tillåtna roller)"
 }

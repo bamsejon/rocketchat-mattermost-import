@@ -1,4 +1,21 @@
 {
     "import_description": "Import channel history from Mattermost",
-    "import_params_example": "<channel-url> <username> <password>"
+    "import_params_example": "<channel-url> [username] [password]",
+
+    "setting_auth_mode_label": "Authentication Mode",
+    "setting_auth_mode_description": "Choose how users authenticate with Mattermost",
+    "setting_auth_mode_user": "User enters credentials",
+    "setting_auth_mode_token": "Use admin token",
+
+    "setting_mattermost_url_label": "Mattermost URL (optional)",
+    "setting_mattermost_url_description": "Base URL for Mattermost server (e.g., https://mattermost.example.com). Optional - can be extracted from channel URL.",
+
+    "setting_admin_token_label": "Admin Token",
+    "setting_admin_token_description": "Mattermost personal access token for importing. Required when using admin token mode. Generate in Mattermost: Profile > Security > Personal Access Tokens.",
+
+    "setting_allowed_roles_label": "Allowed Roles",
+    "setting_allowed_roles_description": "Comma-separated list of roles that can use the import command (e.g., admin, moderator)",
+
+    "setting_allowed_users_label": "Allowed Users",
+    "setting_allowed_users_description": "Comma-separated list of usernames that can use the import command (in addition to allowed roles)"
 }

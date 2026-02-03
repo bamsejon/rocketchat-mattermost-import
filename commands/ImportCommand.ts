@@ -3,6 +3,7 @@ import {
     IModify,
     IRead,
     IPersistence,
+    IPersistenceRead,
 } from '@rocket.chat/apps-engine/definition/accessors';
 import {
     ISlashCommand,
@@ -11,6 +12,7 @@ import {
 import { IUser } from '@rocket.chat/apps-engine/definition/users';
 import { IRoom } from '@rocket.chat/apps-engine/definition/rooms';
 import { App } from '@rocket.chat/apps-engine/definition/App';
+import { RocketChatAssociationModel, RocketChatAssociationRecord } from '@rocket.chat/apps-engine/definition/metadata';
 
 interface MattermostPost {
     id: string;
@@ -48,6 +50,18 @@ interface MattermostFile {
     mime_type: string;
 }
 
+interface ImportRecord {
+    roomId: string;
+    mattermostChannelId: string;
+    mattermostUrl: string;
+    teamName: string;
+    channelName: string;
+    lastImportedTimestamp: number;
+    lastImportedPostId: string;
+    totalImported: number;
+    lastImportDate: string;
+}
+
 export class ImportCommand implements ISlashCommand {
     public command = 'importmattermost';
     public i18nParamsExample = 'import_params_example';
@@ -69,104 +83,211 @@ export class ImportCommand implements ISlashCommand {
         const sender = context.getSender();
         const room = context.getRoom();
 
-        // Parse arguments: <full-url> <username> <password>
-        // URL format: https://mattermost.example.com/team/channels/channel
-        if (args.length < 3) {
+        // Check permissions first
+        const hasPermission = await this.checkPermission(sender, read);
+        if (!hasPermission) {
             await this.sendNotifyMessage(
                 room,
                 sender,
                 modify,
-                '**Usage:** `/importmattermost <channel-url> <username> <password>`\n\n' +
-                '**Example:** `/importmattermost https://mattermost.example.com/myteam/channels/general user pass`\n\n' +
-                'Just paste the full URL from your Mattermost channel!'
+                '**Error:** You do not have permission to use this command.\n\n' +
+                'Contact your administrator to get access.'
             );
             return;
         }
 
-        const fullUrl = args[0];
-        const username = args[1];
-        const password = args[2];
+        // Get auth mode from settings
+        const authMode = await read.getEnvironmentReader().getSettings().getValueById('auth_mode');
 
-        // Parse the Mattermost URL to extract base URL, team, and channel
-        // Format: https://host/team/channels/channel
-        const urlMatch = fullUrl.match(/^(https?:\/\/[^\/]+)\/([^\/]+)\/channels\/([^\/]+)\/?$/);
-        if (!urlMatch) {
+        let mattermostUrl: string;
+        let token: string | null;
+        let teamName: string;
+        let channelName: string;
+
+        if (authMode === 'admin_token') {
+            // Admin token mode: /importmattermost <channel-url>
+            if (args.length < 1) {
+                await this.sendNotifyMessage(
+                    room,
+                    sender,
+                    modify,
+                    '**Usage:** `/importmattermost <channel-url>`\n\n' +
+                    '**Example:** `/importmattermost https://mattermost.example.com/myteam/channels/general`\n\n' +
+                    'Authentication is handled by admin token (configured in app settings).'
+                );
+                return;
+            }
+
+            const fullUrl = args[0];
+            const urlMatch = fullUrl.match(/^(https?:\/\/[^\/]+)\/([^\/]+)\/channels\/([^\/]+)\/?$/);
+
+            if (!urlMatch) {
+                await this.sendNotifyMessage(
+                    room,
+                    sender,
+                    modify,
+                    '**Error:** Invalid Mattermost URL format.\n\n' +
+                    'Expected: `https://mattermost.example.com/team/channels/channel`'
+                );
+                return;
+            }
+
+            // Get configured URL and token
+            const configuredUrl = await read.getEnvironmentReader().getSettings().getValueById('mattermost_url');
+            const adminToken = await read.getEnvironmentReader().getSettings().getValueById('admin_token');
+
+            if (!adminToken) {
+                await this.sendNotifyMessage(
+                    room,
+                    sender,
+                    modify,
+                    '**Error:** Admin token not configured.\n\n' +
+                    'Ask your administrator to configure the Mattermost admin token in app settings.'
+                );
+                return;
+            }
+
+            // Use URL from the command, but can be overridden by settings
+            mattermostUrl = urlMatch[1];
+            teamName = urlMatch[2];
+            channelName = urlMatch[3];
+            token = adminToken as string;
+
+        } else {
+            // User credentials mode: /importmattermost <channel-url> <username> <password>
+            if (args.length < 3) {
+                await this.sendNotifyMessage(
+                    room,
+                    sender,
+                    modify,
+                    '**Usage:** `/importmattermost <channel-url> <username> <password>`\n\n' +
+                    '**Example:** `/importmattermost https://mattermost.example.com/myteam/channels/general user pass`\n\n' +
+                    'Just paste the full URL from your Mattermost channel!'
+                );
+                return;
+            }
+
+            const fullUrl = args[0];
+            const username = args[1];
+            const password = args[2];
+
+            const urlMatch = fullUrl.match(/^(https?:\/\/[^\/]+)\/([^\/]+)\/channels\/([^\/]+)\/?$/);
+            if (!urlMatch) {
+                await this.sendNotifyMessage(
+                    room,
+                    sender,
+                    modify,
+                    '**Error:** Invalid Mattermost URL format.\n\n' +
+                    'Expected: `https://mattermost.example.com/team/channels/channel`\n\n' +
+                    'Just copy the URL from your browser when viewing the channel!'
+                );
+                return;
+            }
+
+            mattermostUrl = urlMatch[1];
+            teamName = urlMatch[2];
+            channelName = urlMatch[3];
+
             await this.sendNotifyMessage(
                 room,
                 sender,
                 modify,
-                '**Error:** Invalid Mattermost URL format.\n\n' +
-                'Expected: `https://mattermost.example.com/team/channels/channel`\n\n' +
-                'Just copy the URL from your browser when viewing the channel!'
+                `Starting import from Mattermost channel **${teamName}/${channelName}**...`
             );
-            return;
-        }
 
-        const mattermostUrl = urlMatch[1];
-        const teamName = urlMatch[2];
-        const channelName = urlMatch[3];
-
-        await this.sendNotifyMessage(
-            room,
-            sender,
-            modify,
-            `Starting import from Mattermost channel **${teamName}/${channelName}**...`
-        );
-
-        try {
-            // Step 1: Authenticate with Mattermost
-            const token = await this.authenticate(http, mattermostUrl, username, password);
+            // Authenticate
+            token = await this.authenticate(http, mattermostUrl, username, password);
             if (!token) {
                 await this.sendNotifyMessage(room, sender, modify, '**Error:** Failed to authenticate with Mattermost. Check your credentials.');
                 return;
             }
 
             await this.sendNotifyMessage(room, sender, modify, 'Authenticated with Mattermost.');
+        }
 
-            // Step 2: Get team ID
+        if (authMode === 'admin_token') {
+            await this.sendNotifyMessage(
+                room,
+                sender,
+                modify,
+                `Starting import from Mattermost channel **${teamName}/${channelName}**...`
+            );
+        }
+
+        try {
+            // Get team ID
             const teamId = await this.getTeamId(http, mattermostUrl, token, teamName);
             if (!teamId) {
                 await this.sendNotifyMessage(room, sender, modify, `**Error:** Team "${teamName}" not found.`);
                 return;
             }
 
-            // Step 3: Get channel ID
+            // Get channel ID
             const channelId = await this.getChannelId(http, mattermostUrl, token, teamId, channelName);
             if (!channelId) {
                 await this.sendNotifyMessage(room, sender, modify, `**Error:** Channel "${channelName}" not found in team "${teamName}".`);
                 return;
             }
 
-            await this.sendNotifyMessage(room, sender, modify, 'Found channel. Fetching messages...');
+            await this.sendNotifyMessage(room, sender, modify, 'Found channel. Checking for previous imports...');
 
-            // Step 4: Fetch all posts from the channel
-            const posts = await this.getAllPosts(http, mattermostUrl, token, channelId);
+            // Check for previous imports
+            const importRecord = await this.getImportRecord(read.getPersistenceReader(), room.id, channelId);
+            let sinceTimestamp = 0;
+            let isIncrementalImport = false;
+
+            if (importRecord) {
+                sinceTimestamp = importRecord.lastImportedTimestamp;
+                isIncrementalImport = true;
+                const lastDate = new Date(importRecord.lastImportDate).toLocaleString('sv-SE');
+                await this.sendNotifyMessage(
+                    room,
+                    sender,
+                    modify,
+                    `Found previous import (${importRecord.totalImported} messages imported on ${lastDate}).\n` +
+                    `Fetching only new messages since then...`
+                );
+            } else {
+                await this.sendNotifyMessage(room, sender, modify, 'No previous import found. Fetching all messages...');
+            }
+
+            // Fetch posts (all or since last import)
+            const posts = await this.getAllPosts(http, mattermostUrl, token, channelId, sinceTimestamp);
+
             if (posts.length === 0) {
-                await this.sendNotifyMessage(room, sender, modify, 'No messages found in the channel.');
+                if (isIncrementalImport) {
+                    await this.sendNotifyMessage(room, sender, modify, 'No new messages found since last import.');
+                } else {
+                    await this.sendNotifyMessage(room, sender, modify, 'No messages found in the channel.');
+                }
                 return;
             }
 
-            await this.sendNotifyMessage(room, sender, modify, `Found **${posts.length}** messages. Starting import...`);
+            const newOrAll = isIncrementalImport ? 'new ' : '';
+            await this.sendNotifyMessage(room, sender, modify, `Found **${posts.length}** ${newOrAll}messages. Starting import...`);
 
-            // Step 5: Import messages in chronological order
             // Sort posts by create_at (oldest first)
             posts.sort((a, b) => a.create_at - b.create_at);
 
             let importedCount = 0;
             let errorCount = 0;
+            let skippedCount = 0;
             const batchSize = 50;
+            let lastImportedPost: MattermostPost | null = null;
 
             for (let i = 0; i < posts.length; i++) {
                 const post = posts[i];
 
                 // Skip system messages
                 if (post.type && post.type !== '') {
+                    skippedCount++;
                     continue;
                 }
 
                 try {
                     await this.importPost(http, modify, room, sender, mattermostUrl, token, post);
                     importedCount++;
+                    lastImportedPost = post;
 
                     // Progress update every 50 messages
                     if (importedCount % batchSize === 0) {
@@ -186,11 +307,33 @@ export class ImportCommand implements ISlashCommand {
                 }
             }
 
+            // Save import record for future incremental imports
+            if (lastImportedPost) {
+                const newRecord: ImportRecord = {
+                    roomId: room.id,
+                    mattermostChannelId: channelId,
+                    mattermostUrl: mattermostUrl,
+                    teamName: teamName,
+                    channelName: channelName,
+                    lastImportedTimestamp: lastImportedPost.create_at,
+                    lastImportedPostId: lastImportedPost.id,
+                    totalImported: (importRecord?.totalImported || 0) + importedCount,
+                    lastImportDate: new Date().toISOString(),
+                };
+
+                await this.saveImportRecord(persistence, newRecord);
+            }
+
+            const totalImported = (importRecord?.totalImported || 0) + importedCount;
             await this.sendNotifyMessage(
                 room,
                 sender,
                 modify,
-                `**Import complete!**\n- Imported: ${importedCount} messages\n- Errors: ${errorCount}\n- Skipped (system messages): ${posts.length - importedCount - errorCount}`
+                `**Import complete!**\n` +
+                `- Imported: ${importedCount} ${newOrAll}messages\n` +
+                `- Errors: ${errorCount}\n` +
+                `- Skipped (system messages): ${skippedCount}\n` +
+                `- Total imported to this room: ${totalImported} messages`
             );
 
         } catch (error) {
@@ -204,6 +347,68 @@ export class ImportCommand implements ISlashCommand {
         }
     }
 
+    private async checkPermission(user: IUser, read: IRead): Promise<boolean> {
+        const settings = read.getEnvironmentReader().getSettings();
+
+        // Get allowed roles (comma-separated)
+        const allowedRolesStr = await settings.getValueById('allowed_roles') as string;
+        const allowedRoles = allowedRolesStr.split(',').map(r => r.trim().toLowerCase()).filter(r => r);
+
+        // Get allowed users (comma-separated usernames)
+        const allowedUsersStr = await settings.getValueById('allowed_users') as string;
+        const allowedUsers = allowedUsersStr ? allowedUsersStr.split(',').map(u => u.trim().toLowerCase()).filter(u => u) : [];
+
+        // Check if user is in allowed users list
+        if (allowedUsers.length > 0 && allowedUsers.includes(user.username.toLowerCase())) {
+            return true;
+        }
+
+        // Check if user has any of the allowed roles
+        if (user.roles && allowedRoles.length > 0) {
+            for (const role of user.roles) {
+                if (allowedRoles.includes(role.toLowerCase())) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private getImportAssociation(roomId: string, mattermostChannelId: string): RocketChatAssociationRecord {
+        return new RocketChatAssociationRecord(
+            RocketChatAssociationModel.MISC,
+            `import_${roomId}_${mattermostChannelId}`
+        );
+    }
+
+    private getRoomImportAssociation(roomId: string): RocketChatAssociationRecord {
+        return new RocketChatAssociationRecord(
+            RocketChatAssociationModel.ROOM,
+            roomId
+        );
+    }
+
+    private async getImportRecord(
+        persistenceRead: IPersistenceRead,
+        roomId: string,
+        mattermostChannelId: string
+    ): Promise<ImportRecord | null> {
+        const association = this.getImportAssociation(roomId, mattermostChannelId);
+        const records = await persistenceRead.readByAssociation(association);
+
+        if (records && records.length > 0) {
+            return records[0] as ImportRecord;
+        }
+
+        return null;
+    }
+
+    private async saveImportRecord(persistence: IPersistence, record: ImportRecord): Promise<void> {
+        const association = this.getImportAssociation(record.roomId, record.mattermostChannelId);
+        await persistence.updateByAssociation(association, record, true);
+    }
+
     private async authenticate(http: IHttp, baseUrl: string, username: string, password: string): Promise<string | null> {
         try {
             const response = await http.post(`${baseUrl}/api/v4/users/login`, {
@@ -212,7 +417,6 @@ export class ImportCommand implements ISlashCommand {
             });
 
             if (response.statusCode === 200 && response.headers) {
-                // Token is in the response header
                 const token = response.headers['token'];
                 if (token) {
                     return token;
@@ -260,19 +464,29 @@ export class ImportCommand implements ISlashCommand {
         }
     }
 
-    private async getAllPosts(http: IHttp, baseUrl: string, token: string, channelId: string): Promise<MattermostPost[]> {
+    private async getAllPosts(
+        http: IHttp,
+        baseUrl: string,
+        token: string,
+        channelId: string,
+        sinceTimestamp: number = 0
+    ): Promise<MattermostPost[]> {
         const allPosts: MattermostPost[] = [];
         let page = 0;
         const perPage = 200;
 
         while (true) {
             try {
-                const response = await http.get(
-                    `${baseUrl}/api/v4/channels/${channelId}/posts?page=${page}&per_page=${perPage}`,
-                    {
-                        headers: { 'Authorization': `Bearer ${token}` },
-                    }
-                );
+                let url = `${baseUrl}/api/v4/channels/${channelId}/posts?page=${page}&per_page=${perPage}`;
+
+                // If we have a since timestamp, use the since parameter to get only newer posts
+                if (sinceTimestamp > 0) {
+                    url = `${baseUrl}/api/v4/channels/${channelId}/posts?since=${sinceTimestamp}`;
+                }
+
+                const response = await http.get(url, {
+                    headers: { 'Authorization': `Bearer ${token}` },
+                });
 
                 if (response.statusCode !== 200 || !response.data) {
                     break;
@@ -288,8 +502,18 @@ export class ImportCommand implements ISlashCommand {
 
                 for (const postId of order) {
                     if (posts[postId]) {
-                        allPosts.push(posts[postId]);
+                        const post = posts[postId];
+                        // Skip posts that are exactly at the since timestamp (already imported)
+                        if (sinceTimestamp > 0 && post.create_at <= sinceTimestamp) {
+                            continue;
+                        }
+                        allPosts.push(post);
                     }
+                }
+
+                // If using since parameter, we get all posts in one request
+                if (sinceTimestamp > 0) {
+                    break;
                 }
 
                 if (order.length < perPage) {
@@ -307,7 +531,6 @@ export class ImportCommand implements ISlashCommand {
     }
 
     private async getUser(http: IHttp, baseUrl: string, token: string, userId: string): Promise<MattermostUser | null> {
-        // Check cache first
         if (this.userCache.has(userId)) {
             return this.userCache.get(userId) || null;
         }
@@ -339,27 +562,22 @@ export class ImportCommand implements ISlashCommand {
         token: string,
         post: MattermostPost
     ): Promise<void> {
-        // Get the original poster's username
         const mmUser = await this.getUser(http, baseUrl, token, post.user_id);
         const username = mmUser?.username || 'unknown';
         const displayName = mmUser?.first_name && mmUser?.last_name
             ? `${mmUser.first_name} ${mmUser.last_name}`
             : mmUser?.nickname || username;
 
-        // Format timestamp
         const date = new Date(post.create_at);
         const timestamp = date.toISOString().replace('T', ' ').substring(0, 16);
 
-        // Build the message
         let messageText = `**[${displayName} (${username}) ${timestamp}]**\n${post.message}`;
 
-        // Check for file attachments
         if (post.file_ids && post.file_ids.length > 0) {
             const fileLinks: string[] = [];
             for (const fileId of post.file_ids) {
                 const fileInfo = await this.getFileInfo(http, baseUrl, token, fileId);
                 if (fileInfo) {
-                    // Create a link to the file (users will need access to Mattermost to view)
                     const fileUrl = `${baseUrl}/api/v4/files/${fileId}`;
                     fileLinks.push(`[${fileInfo.name}](${fileUrl})`);
                 }
@@ -369,7 +587,6 @@ export class ImportCommand implements ISlashCommand {
             }
         }
 
-        // Send the message
         const messageBuilder = modify.getCreator().startMessage()
             .setRoom(room)
             .setSender(sender)
