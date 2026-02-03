@@ -27,11 +27,11 @@ export class MattermostImportApp extends App {
             packageValue: 'user_credentials',
             required: true,
             public: false,
-            i18nLabel: 'setting_auth_mode_label',
-            i18nDescription: 'setting_auth_mode_description',
+            i18nLabel: 'Authentication Mode',
+            i18nDescription: 'Choose how users authenticate with Mattermost',
             values: [
-                { key: 'user_credentials', i18nLabel: 'setting_auth_mode_user' },
-                { key: 'admin_token', i18nLabel: 'setting_auth_mode_token' },
+                { key: 'user_credentials', i18nLabel: 'User enters credentials' },
+                { key: 'admin_token', i18nLabel: 'Use admin token' },
             ],
         });
 
@@ -41,8 +41,8 @@ export class MattermostImportApp extends App {
             packageValue: '',
             required: false,
             public: false,
-            i18nLabel: 'setting_mattermost_url_label',
-            i18nDescription: 'setting_mattermost_url_description',
+            i18nLabel: 'Mattermost URL (optional)',
+            i18nDescription: 'Base URL for Mattermost server (e.g., https://mattermost.example.com). Optional - can be extracted from channel URL.',
         });
 
         await configuration.settings.provideSetting({
@@ -51,8 +51,8 @@ export class MattermostImportApp extends App {
             packageValue: '',
             required: false,
             public: false,
-            i18nLabel: 'setting_admin_token_label',
-            i18nDescription: 'setting_admin_token_description',
+            i18nLabel: 'Admin Token',
+            i18nDescription: 'Mattermost personal access token for importing. Required when using admin token mode. Generate in Mattermost: Profile > Security > Personal Access Tokens.',
         });
 
         // Permission Settings
@@ -62,8 +62,8 @@ export class MattermostImportApp extends App {
             packageValue: 'admin',
             required: true,
             public: false,
-            i18nLabel: 'setting_allowed_roles_label',
-            i18nDescription: 'setting_allowed_roles_description',
+            i18nLabel: 'Allowed Roles',
+            i18nDescription: 'Comma-separated list of roles that can use the import command (e.g., admin, moderator)',
         });
 
         await configuration.settings.provideSetting({
@@ -72,8 +72,8 @@ export class MattermostImportApp extends App {
             packageValue: '',
             required: false,
             public: false,
-            i18nLabel: 'setting_allowed_users_label',
-            i18nDescription: 'setting_allowed_users_description',
+            i18nLabel: 'Allowed Users',
+            i18nDescription: 'Comma-separated list of usernames that can use the import command (in addition to allowed roles)',
         });
     }
 }
