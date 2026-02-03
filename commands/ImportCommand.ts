@@ -573,26 +573,75 @@ export class ImportCommand implements ISlashCommand {
 
         let messageText = `**[${displayName} (${username}) ${timestamp}]**\n${post.message}`;
 
+        // Handle file attachments - download from Mattermost and upload to Rocket.Chat
+        const uploadedFiles: string[] = [];
         if (post.file_ids && post.file_ids.length > 0) {
-            const fileLinks: string[] = [];
             for (const fileId of post.file_ids) {
-                const fileInfo = await this.getFileInfo(http, baseUrl, token, fileId);
-                if (fileInfo) {
-                    const fileUrl = `${baseUrl}/api/v4/files/${fileId}`;
-                    fileLinks.push(`[${fileInfo.name}](${fileUrl})`);
+                try {
+                    const fileInfo = await this.getFileInfo(http, baseUrl, token, fileId);
+                    if (fileInfo) {
+                        // Download file content from Mattermost
+                        const fileContent = await this.downloadFile(http, baseUrl, token, fileId);
+                        if (fileContent) {
+                            // Upload to Rocket.Chat
+                            await modify.getCreator().getUploadCreator().uploadBuffer(
+                                fileContent,
+                                {
+                                    filename: fileInfo.name,
+                                    room: room,
+                                    user: sender,
+                                }
+                            );
+                            uploadedFiles.push(fileInfo.name);
+                        } else {
+                            // Fallback to link if download fails
+                            const fileUrl = `${baseUrl}/api/v4/files/${fileId}`;
+                            messageText += `\n\n**Attachment (link):** [${fileInfo.name}](${fileUrl})`;
+                        }
+                    }
+                } catch (error) {
+                    this.app.getLogger().error(`Failed to upload file ${fileId}:`, error);
+                    // Fallback to link on error
+                    const fileInfo = await this.getFileInfo(http, baseUrl, token, fileId);
+                    if (fileInfo) {
+                        const fileUrl = `${baseUrl}/api/v4/files/${fileId}`;
+                        messageText += `\n\n**Attachment (link):** [${fileInfo.name}](${fileUrl})`;
+                    }
                 }
-            }
-            if (fileLinks.length > 0) {
-                messageText += `\n\n**Attachments:** ${fileLinks.join(', ')}`;
             }
         }
 
+        // Add note about uploaded files if any
+        if (uploadedFiles.length > 0) {
+            messageText += `\n\n_Uploaded: ${uploadedFiles.join(', ')}_`;
+        }
+
+        // Send the message (with or without file references)
         const messageBuilder = modify.getCreator().startMessage()
             .setRoom(room)
             .setSender(sender)
             .setText(messageText);
 
         await modify.getCreator().finish(messageBuilder);
+    }
+
+    private async downloadFile(http: IHttp, baseUrl: string, token: string, fileId: string): Promise<Buffer | null> {
+        try {
+            const response = await http.get(`${baseUrl}/api/v4/files/${fileId}`, {
+                headers: { 'Authorization': `Bearer ${token}` },
+                encoding: null, // Get raw binary data
+            });
+
+            if (response.statusCode === 200 && response.content) {
+                // Convert the response content to a Buffer
+                return Buffer.from(response.content, 'binary');
+            }
+
+            return null;
+        } catch (error) {
+            this.app.getLogger().error('Download file error:', error);
+            return null;
+        }
     }
 
     private async getFileInfo(http: IHttp, baseUrl: string, token: string, fileId: string): Promise<MattermostFile | null> {
