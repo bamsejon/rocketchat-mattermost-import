@@ -1,6 +1,10 @@
+<img src="icon.png" width="64" height="64" align="left" style="margin-right: 16px">
+
 # Mattermost Import for Rocket.Chat
 
 A Rocket.Chat app that imports channel history from Mattermost with full threading support.
+
+<br clear="left">
 
 ## Features
 
