@@ -1,0 +1,30 @@
+{
+    "id": "c7d4e8f9-3b2a-4c5d-9e1f-6a8b0d2c4e7f",
+    "version": "1.0.0",
+    "requiredApiVersion": "^1.41.0",
+    "iconFile": "icon.png",
+    "author": {
+        "name": "bamsejon",
+        "homepage": "https://github.com/bamsejon/rocketchat-mattermost-import",
+        "support": "https://github.com/bamsejon/rocketchat-mattermost-import/issues"
+    },
+    "name": "Mattermost Import",
+    "nameSlug": "mattermost-import",
+    "classFile": "MattermostImportApp.ts",
+    "description": "Import channel history from Mattermost using /import command",
+    "implements": [],
+    "permissions": [
+        {
+            "name": "slashcommand"
+        },
+        {
+            "name": "networking"
+        },
+        {
+            "name": "message.write"
+        },
+        {
+            "name": "upload.write"
+        }
+    ]
+}

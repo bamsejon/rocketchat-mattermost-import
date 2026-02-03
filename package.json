@@ -1,0 +1,26 @@
+{
+    "name": "rocketchat-mattermost-import",
+    "version": "1.0.0",
+    "description": "Import channel history from Mattermost to Rocket.Chat",
+    "main": "MattermostImportApp.ts",
+    "scripts": {
+        "build": "rc-apps package",
+        "deploy": "rc-apps deploy"
+    },
+    "keywords": [
+        "rocket.chat",
+        "app",
+        "mattermost",
+        "import"
+    ],
+    "author": "bamsejon",
+    "license": "MIT",
+    "devDependencies": {
+        "@rocket.chat/apps-cli": "^1.8.0",
+        "@rocket.chat/apps-engine": "^1.41.0",
+        "@rocket.chat/ui-kit": "^0.33.0",
+        "@rocket.chat/icons": "^0.33.0",
+        "@types/node": "^16.0.0",
+        "typescript": "~4.9.0"
+    }
+}

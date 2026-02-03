@@ -1,0 +1,4 @@
+{
+    "import_description": "Importera kanalhistorik från Mattermost",
+    "import_params_example": "mattermost <url> <användarnamn> <lösenord> <team/kanal>"
+}

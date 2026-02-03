@@ -1,0 +1,4 @@
+{
+    "import_description": "Import channel history from Mattermost",
+    "import_params_example": "mattermost <url> <username> <password> <team/channel>"
+}
