@@ -149,6 +149,10 @@ The app tracks imported messages per room/channel combination:
 
 ## Changelog
 
+### v2.4.0
+- Fixed file upload - files are now properly uploaded to Rocket.Chat
+- Use latin1 encoding for binary file downloads
+
 ### v2.3.0
 - Fixed message header format for better markdown compatibility
 - Improved parsing of imported content
