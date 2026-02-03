@@ -1,52 +1,58 @@
 # Mattermost Import for Rocket.Chat
 
-A Rocket.Chat app that imports channel history from Mattermost using a simple slash command.
+A Rocket.Chat app that imports channel history from Mattermost with full threading support.
 
 ## Features
 
 - Import complete channel history from Mattermost to Rocket.Chat
-- **Threading support** - Replies are imported as proper thread replies in Rocket.Chat
+- **Threading support** - Replies are imported as proper thread replies
 - **Incremental sync** - Only imports new messages on subsequent runs (no duplicates)
+- **File attachments** - Files are downloaded and uploaded to Rocket.Chat
 - **Two authentication modes** - User credentials or admin token
 - **Permission control** - Restrict who can use the import command
 - Preserves original timestamps and usernames
 - Shows progress during import
-- Handles file attachments (uploads to Rocket.Chat)
 - Skips system messages automatically
 
 ## Installation
 
-1. Download the latest release (`mattermost-import_x.x.x.zip`)
-2. Go to **Administration** → **Marketplace** → **Private Apps**
-3. Click **Upload App** and select the zip file
-4. Approve the requested permissions
-5. Configure the app settings (see Configuration below)
+### Quick Install (Recommended)
 
-## Configuration
+1. **Download** the latest release from [Releases](https://github.com/bamsejon/rocketchat-mattermost-import/releases)
 
-Go to **Administration** → **Apps** → **Mattermost Import** → **Settings**
+2. **Enable Apps in Rocket.Chat:**
+   - Log in as administrator
+   - Go to **Administration** (gear icon) → **Settings** → **General** → **Apps**
+   - Set **Enable the App Framework** to `True`
+   - Set **Enable development mode** to `True` (required for private apps)
+   - Click **Save changes**
 
-### Authentication Mode
+3. **Install the App:**
+   - Go to **Administration** → **Apps** → **Private Apps**
+   - Click **Upload App**
+   - Select the downloaded `.zip` file
+   - Click **Install**
+   - When prompted, click **Agree** to accept permissions
 
-Choose how users authenticate with Mattermost:
+4. **Configure the App:**
+   - Go to **Administration** → **Apps** → **Mattermost Import** → **Settings**
+   - Configure authentication mode and permissions (see Configuration below)
 
-- **User enters credentials** (default) - Users provide their own Mattermost username and password
-- **Use admin token** - A pre-configured admin token is used for all imports
+### Build from Source
 
-### Admin Token Setup (optional)
+```bash
+# Clone the repository
+git clone https://github.com/bamsejon/rocketchat-mattermost-import.git
+cd rocketchat-mattermost-import
 
-If using admin token mode:
+# Install dependencies
+npm install
 
-1. In Mattermost, go to **Profile** → **Security** → **Personal Access Tokens**
-2. Create a new token with appropriate permissions
-3. Copy the token to the app settings
+# Build the app
+npm run build
 
-### Permission Control
-
-- **Allowed Roles** - Comma-separated list of roles (e.g., `admin, moderator`)
-- **Allowed Users** - Comma-separated list of usernames (in addition to roles)
-
-Default: Only `admin` role can use the command.
+# The zip file will be created in dist/
+```
 
 ## Usage
 
@@ -58,7 +64,7 @@ Default: Only `admin` role can use the command.
 
 Example:
 ```
-/importmattermost https://mattermost.company.com/engineering/channels/general admin mypassword
+/importmattermost https://mattermost.company.com/myteam/channels/general admin mypassword
 ```
 
 ### With Admin Token
@@ -69,17 +75,32 @@ Example:
 
 Example:
 ```
-/importmattermost https://mattermost.company.com/engineering/channels/general
+/importmattermost https://mattermost.company.com/myteam/channels/general
 ```
 
-## Incremental Sync
+## Configuration
 
-The app tracks which messages have been imported per room/channel combination:
+Go to **Administration** → **Apps** → **Mattermost Import** → **Settings**
 
-- First import: All messages are imported
-- Subsequent imports: Only new messages since the last import are fetched
-- Running the command again is safe - no duplicates will be created
-- Import history is stored per Rocket.Chat room
+### Authentication Mode
+
+- **User enters credentials** (default) - Users provide their own Mattermost username and password
+- **Use admin token** - A pre-configured admin token is used for all imports
+
+### Admin Token Setup
+
+If using admin token mode:
+
+1. In Mattermost, go to **Profile** → **Security** → **Personal Access Tokens**
+2. Create a new token with appropriate permissions
+3. Copy the token to the app settings
+
+### Permission Control
+
+- **Allowed Roles** - Comma-separated list of roles (e.g., `admin, moderator`)
+- **Allowed Users** - Comma-separated list of usernames
+
+Default: Only `admin` role can use the command.
 
 ## Message Format
 
@@ -93,23 +114,40 @@ Original message content
 
 Threaded replies are automatically linked to their parent messages.
 
-## Permissions Required
+## Incremental Sync
 
-- **slashcommand** - Register the `/importmattermost` command
-- **networking** - Connect to Mattermost API
-- **message.write** - Post imported messages
-- **upload.write** - Handle file attachments
+The app tracks imported messages per room/channel combination:
 
-## Compatibility
+- First import: All messages are imported
+- Subsequent imports: Only new messages since the last import
+- Running the command again is safe - no duplicates will be created
 
-- Rocket.Chat Apps Engine: ^1.41.0
-- Mattermost: v10.x (tested with 10.12.4)
+## Requirements
+
+- Rocket.Chat 6.0 or newer
+- Apps Framework enabled
+- Administrator access for installation
+
+## Troubleshooting
+
+### App doesn't appear after upload
+- Make sure **Enable development mode** is set to `True` in Settings → General → Apps
+- Try refreshing the page after enabling
+
+### Import fails with authentication error
+- Verify your Mattermost credentials are correct
+- Check that your user has access to the channel
+- For admin token mode, ensure the token has proper permissions
+
+### Threading not working
+- Threading requires importing messages in chronological order
+- If parent messages were imported in a previous run, replies may not be linked
 
 ## Changelog
 
 ### v2.3.0
-- Fixed message header format to avoid markdown parsing issues
-- Added double newline between header and content for better compatibility
+- Fixed message header format for better markdown compatibility
+- Improved parsing of imported content
 
 ### v2.2.0
 - Added threading support - replies are now imported as thread replies
@@ -123,13 +161,6 @@ Threaded replies are automatically linked to their parent messages.
 - Added incremental sync (only imports new messages)
 - Added admin token authentication mode
 - Added permission control (roles and users)
-- Added app settings for configuration
-
-### v1.2.0
-- Changed command from `/import mattermost` to `/importmattermost`
-
-### v1.1.0
-- Simplified URL input (paste full channel URL)
 
 ### v1.0.0
 - Initial release
@@ -137,3 +168,7 @@ Threaded replies are automatically linked to their parent messages.
 ## License
 
 MIT
+
+## Author
+
+bamsejon - https://github.com/bamsejon
