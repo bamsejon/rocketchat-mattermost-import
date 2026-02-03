@@ -20,6 +20,7 @@ interface MattermostPost {
     update_at: number;
     user_id: string;
     channel_id: string;
+    root_id: string;
     message: string;
     type: string;
     file_ids?: string[];
@@ -272,8 +273,12 @@ export class ImportCommand implements ISlashCommand {
             let importedCount = 0;
             let errorCount = 0;
             let skippedCount = 0;
+            let threadedCount = 0;
             const batchSize = 50;
             let lastImportedPost: MattermostPost | null = null;
+
+            // Map Mattermost post IDs to Rocket.Chat message IDs for threading
+            const postIdToMessageId: Map<string, string> = new Map();
 
             for (let i = 0; i < posts.length; i++) {
                 const post = posts[i];
@@ -285,7 +290,22 @@ export class ImportCommand implements ISlashCommand {
                 }
 
                 try {
-                    await this.importPost(http, modify, room, sender, mattermostUrl, token, post);
+                    // Check if this is a reply to another post
+                    let threadId: string | undefined;
+                    if (post.root_id && post.root_id !== '') {
+                        threadId = postIdToMessageId.get(post.root_id);
+                        if (threadId) {
+                            threadedCount++;
+                        }
+                    }
+
+                    const messageId = await this.importPost(http, modify, room, sender, mattermostUrl, token, post, threadId);
+
+                    // Store the mapping for potential replies
+                    if (messageId) {
+                        postIdToMessageId.set(post.id, messageId);
+                    }
+
                     importedCount++;
                     lastImportedPost = post;
 
@@ -331,6 +351,7 @@ export class ImportCommand implements ISlashCommand {
                 modify,
                 `**Import complete!**\n` +
                 `- Imported: ${importedCount} ${newOrAll}messages\n` +
+                `- Threaded replies: ${threadedCount}\n` +
                 `- Errors: ${errorCount}\n` +
                 `- Skipped (system messages): ${skippedCount}\n` +
                 `- Total imported to this room: ${totalImported} messages`
@@ -577,8 +598,9 @@ export class ImportCommand implements ISlashCommand {
         sender: IUser,
         baseUrl: string,
         token: string,
-        post: MattermostPost
-    ): Promise<void> {
+        post: MattermostPost,
+        threadId?: string
+    ): Promise<string | undefined> {
         const mmUser = await this.getUser(http, baseUrl, token, post.user_id);
         const username = mmUser?.username || 'unknown';
         const displayName = mmUser?.first_name && mmUser?.last_name
@@ -588,7 +610,9 @@ export class ImportCommand implements ISlashCommand {
         const date = new Date(post.create_at);
         const timestamp = date.toISOString().replace('T', ' ').substring(0, 16);
 
-        let messageText = `**[${displayName} (${username}) ${timestamp}]**\n${post.message}`;
+        // Use a format that won't conflict with markdown link syntax
+        // Avoid [ ] brackets as they get parsed as links
+        let messageText = `**${displayName} (${username}) — ${timestamp}**\n\n${post.message}`;
 
         // Handle file attachments - download from Mattermost and upload to Rocket.Chat
         const uploadedFiles: string[] = [];
@@ -639,7 +663,13 @@ export class ImportCommand implements ISlashCommand {
             .setSender(sender)
             .setText(messageText);
 
-        await modify.getCreator().finish(messageBuilder);
+        // If this is a reply, set it as a thread reply
+        if (threadId) {
+            messageBuilder.setThreadId(threadId);
+        }
+
+        const messageId = await modify.getCreator().finish(messageBuilder);
+        return messageId;
     }
 
     private async downloadFile(http: IHttp, baseUrl: string, token: string, fileId: string): Promise<Buffer | null> {
