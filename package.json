@@ -1,6 +1,6 @@
 {
     "name": "rocketchat-mattermost-import",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "description": "Import channel history from Mattermost to Rocket.Chat",
     "main": "MattermostImportApp.ts",
     "scripts": {

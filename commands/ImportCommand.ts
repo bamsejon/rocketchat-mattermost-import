@@ -395,9 +395,13 @@ export class ImportCommand implements ISlashCommand {
         mattermostChannelId: string
     ): Promise<ImportRecord | null> {
         const association = this.getImportAssociation(roomId, mattermostChannelId);
+        this.app.getLogger().info(`Looking for import record: room=${roomId}, channel=${mattermostChannelId}`);
+
         const records = await persistenceRead.readByAssociation(association);
+        this.app.getLogger().info(`Found ${records?.length || 0} records`);
 
         if (records && records.length > 0) {
+            this.app.getLogger().info(`Returning record: ${JSON.stringify(records[0])}`);
             return records[0] as ImportRecord;
         }
 
@@ -406,7 +410,20 @@ export class ImportCommand implements ISlashCommand {
 
     private async saveImportRecord(persistence: IPersistence, record: ImportRecord): Promise<void> {
         const association = this.getImportAssociation(record.roomId, record.mattermostChannelId);
-        await persistence.updateByAssociation(association, record, true);
+        this.app.getLogger().info(`Saving import record for room ${record.roomId}, channel ${record.mattermostChannelId}`);
+        this.app.getLogger().info(`Record: ${JSON.stringify(record)}`);
+
+        try {
+            // First, remove any existing records with this association
+            await persistence.removeByAssociation(association);
+            this.app.getLogger().info('Removed old records');
+
+            // Then create the new record
+            await persistence.createWithAssociation(record, association);
+            this.app.getLogger().info('Import record saved successfully');
+        } catch (error) {
+            this.app.getLogger().error('Failed to save import record:', error);
+        }
     }
 
     private async authenticate(http: IHttp, baseUrl: string, username: string, password: string): Promise<string | null> {
