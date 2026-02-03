@@ -69,34 +69,42 @@ export class ImportCommand implements ISlashCommand {
         const sender = context.getSender();
         const room = context.getRoom();
 
-        // Parse arguments: mattermost <url> <username> <password> <team/channel>
-        if (args.length < 5 || args[0] !== 'mattermost') {
+        // Parse arguments: mattermost <full-url> <username> <password>
+        // URL format: https://mattermost.example.com/team/channels/channel
+        if (args.length < 4 || args[0] !== 'mattermost') {
             await this.sendNotifyMessage(
                 room,
                 sender,
                 modify,
-                '**Usage:** `/import mattermost <url> <username> <password> <team/channel>`\n\n' +
-                '**Example:** `/import mattermost https://mattermost.example.com user pass myteam/general`\n\n' +
-                'This will import all messages from the specified Mattermost channel into this Rocket.Chat channel.'
+                '**Usage:** `/import mattermost <channel-url> <username> <password>`\n\n' +
+                '**Example:** `/import mattermost https://mattermost.example.com/myteam/channels/general user pass`\n\n' +
+                'Just paste the full URL from your Mattermost channel!'
             );
             return;
         }
 
-        const mattermostUrl = args[1].replace(/\/$/, ''); // Remove trailing slash
+        const fullUrl = args[1];
         const username = args[2];
         const password = args[3];
-        const channelPath = args[4]; // team/channel format
 
-        const [teamName, channelName] = channelPath.split('/');
-        if (!teamName || !channelName) {
+        // Parse the Mattermost URL to extract base URL, team, and channel
+        // Format: https://host/team/channels/channel
+        const urlMatch = fullUrl.match(/^(https?:\/\/[^\/]+)\/([^\/]+)\/channels\/([^\/]+)\/?$/);
+        if (!urlMatch) {
             await this.sendNotifyMessage(
                 room,
                 sender,
                 modify,
-                '**Error:** Channel path must be in format `team/channel`\n\nExample: `myteam/general`'
+                '**Error:** Invalid Mattermost URL format.\n\n' +
+                'Expected format: `https://mattermost.example.com/team/channels/channel`\n\n' +
+                'Just copy the URL from your browser when viewing the channel in Mattermost.'
             );
             return;
         }
+
+        const mattermostUrl = urlMatch[1];
+        const teamName = urlMatch[2];
+        const channelName = urlMatch[3];
 
         await this.sendNotifyMessage(
             room,

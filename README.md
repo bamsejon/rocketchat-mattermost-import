@@ -22,21 +22,22 @@ A Rocket.Chat app that imports channel history from Mattermost using a simple sl
 In any Rocket.Chat channel, use the `/import` command:
 
 ```
-/import mattermost <url> <username> <password> <team/channel>
+/import mattermost <channel-url> <username> <password>
 ```
 
 ### Parameters
 
-- `url` - Your Mattermost server URL (e.g., `https://mattermost.example.com`)
+- `channel-url` - The full URL to the Mattermost channel (just copy from your browser)
 - `username` - Mattermost username
 - `password` - Mattermost password
-- `team/channel` - Path to the channel in format `teamname/channelname`
 
 ### Example
 
 ```
-/import mattermost https://mattermost.company.com admin mypassword engineering/general
+/import mattermost https://mattermost.company.com/engineering/channels/general admin mypassword
 ```
+
+Simply copy the URL from your browser when viewing the channel in Mattermost and paste it into the command!
 
 ## Message Format
 
