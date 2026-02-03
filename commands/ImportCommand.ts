@@ -49,7 +49,7 @@ interface MattermostFile {
 }
 
 export class ImportCommand implements ISlashCommand {
-    public command = 'import';
+    public command = 'importmattermost';
     public i18nParamsExample = 'import_params_example';
     public i18nDescription = 'import_description';
     public providesPreview = false;
@@ -69,23 +69,23 @@ export class ImportCommand implements ISlashCommand {
         const sender = context.getSender();
         const room = context.getRoom();
 
-        // Parse arguments: mattermost <full-url> <username> <password>
+        // Parse arguments: <full-url> <username> <password>
         // URL format: https://mattermost.example.com/team/channels/channel
-        if (args.length < 4 || args[0] !== 'mattermost') {
+        if (args.length < 3) {
             await this.sendNotifyMessage(
                 room,
                 sender,
                 modify,
-                '**Usage:** `/import mattermost <channel-url> <username> <password>`\n\n' +
-                '**Example:** `/import mattermost https://mattermost.example.com/myteam/channels/general user pass`\n\n' +
+                '**Usage:** `/importmattermost <channel-url> <username> <password>`\n\n' +
+                '**Example:** `/importmattermost https://mattermost.example.com/myteam/channels/general user pass`\n\n' +
                 'Just paste the full URL from your Mattermost channel!'
             );
             return;
         }
 
-        const fullUrl = args[1];
-        const username = args[2];
-        const password = args[3];
+        const fullUrl = args[0];
+        const username = args[1];
+        const password = args[2];
 
         // Parse the Mattermost URL to extract base URL, team, and channel
         // Format: https://host/team/channels/channel
@@ -96,8 +96,8 @@ export class ImportCommand implements ISlashCommand {
                 sender,
                 modify,
                 '**Error:** Invalid Mattermost URL format.\n\n' +
-                'Expected format: `https://mattermost.example.com/team/channels/channel`\n\n' +
-                'Just copy the URL from your browser when viewing the channel in Mattermost.'
+                'Expected: `https://mattermost.example.com/team/channels/channel`\n\n' +
+                'Just copy the URL from your browser when viewing the channel!'
             );
             return;
         }
