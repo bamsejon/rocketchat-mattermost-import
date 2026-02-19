@@ -149,6 +149,11 @@ The app tracks imported messages per room/channel combination:
 
 ## Changelog
 
+### v2.5.0
+- User mapping: Mattermost users are matched to Rocket.Chat users via email
+- Matched users appear as the actual sender instead of freetext
+- Unmatched users fall back to previous freetext behavior
+
 ### v2.4.0
 - Fixed file upload - files are now properly uploaded to Rocket.Chat
 - Use latin1 encoding for binary file downloads

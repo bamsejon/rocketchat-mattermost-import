@@ -55,6 +55,17 @@ export class MattermostImportApp extends App {
             i18nDescription: 'Mattermost personal access token for importing. Required when using admin token mode. Generate in Mattermost: Profile > Security > Personal Access Tokens.',
         });
 
+        // User Mapping Settings
+        await configuration.settings.provideSetting({
+            id: 'user_mapping',
+            type: SettingType.STRING,
+            packageValue: '',
+            required: false,
+            public: false,
+            i18nLabel: 'User Mapping (JSON)',
+            i18nDescription: 'JSON object mapping Mattermost usernames to Rocket.Chat usernames. Example: {"mm_user1": "rc_user1", "mm_user2": "rc_user2"}. Leave empty to match by identical username.',
+        });
+
         // Permission Settings
         await configuration.settings.provideSetting({
             id: 'allowed_roles',

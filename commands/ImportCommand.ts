@@ -41,6 +41,7 @@ interface MattermostUser {
     first_name: string;
     last_name: string;
     nickname: string;
+    email: string;
 }
 
 interface MattermostFile {
@@ -70,6 +71,7 @@ export class ImportCommand implements ISlashCommand {
     public providesPreview = false;
 
     private userCache: Map<string, MattermostUser> = new Map();
+    private rcUserCache: Map<string, IUser | null> = new Map();
 
     constructor(private readonly app: App) {}
 
@@ -299,7 +301,7 @@ export class ImportCommand implements ISlashCommand {
                         }
                     }
 
-                    const messageId = await this.importPost(http, modify, room, sender, mattermostUrl, token, post, threadId);
+                    const messageId = await this.importPost(http, modify, read, room, sender, mattermostUrl, token, post, threadId);
 
                     // Store the mapping for potential replies
                     if (messageId) {
@@ -591,9 +593,45 @@ export class ImportCommand implements ISlashCommand {
         }
     }
 
+    private async getUserMapping(read: IRead): Promise<Record<string, string>> {
+        try {
+            const mappingStr = await read.getEnvironmentReader().getSettings().getValueById('user_mapping') as string;
+            if (mappingStr && mappingStr.trim()) {
+                return JSON.parse(mappingStr);
+            }
+        } catch (error) {
+            this.app.getLogger().error('Failed to parse user mapping JSON:', error);
+        }
+        return {};
+    }
+
+    private async getRocketChatUser(read: IRead, mmUsername: string): Promise<IUser | null> {
+        if (this.rcUserCache.has(mmUsername)) {
+            return this.rcUserCache.get(mmUsername) || null;
+        }
+
+        // Check if there's a manual mapping for this username
+        const mapping = await this.getUserMapping(read);
+        const rcUsername = mapping[mmUsername] || mmUsername;
+
+        try {
+            const rcUser = await read.getUserReader().getByUsername(rcUsername);
+            if (rcUser) {
+                this.rcUserCache.set(mmUsername, rcUser);
+                return rcUser;
+            }
+        } catch (error) {
+            this.app.getLogger().debug(`No RC user found for username "${rcUsername}"`);
+        }
+
+        this.rcUserCache.set(mmUsername, null);
+        return null;
+    }
+
     private async importPost(
         http: IHttp,
         modify: IModify,
+        read: IRead,
         room: IRoom,
         sender: IUser,
         baseUrl: string,
@@ -607,12 +645,26 @@ export class ImportCommand implements ISlashCommand {
             ? `${mmUser.first_name} ${mmUser.last_name}`
             : mmUser?.nickname || username;
 
+        // Try to map Mattermost user to Rocket.Chat user by username
+        let actualSender = sender;
+        if (mmUser) {
+            const rcUser = await this.getRocketChatUser(read, mmUser.username);
+            if (rcUser) {
+                actualSender = rcUser;
+            }
+        }
+
         const date = new Date(post.create_at);
         const timestamp = date.toISOString().replace('T', ' ').substring(0, 16);
 
-        // Use a format that won't conflict with markdown link syntax
-        // Avoid [ ] brackets as they get parsed as links
-        let messageText = `**${displayName} (${username}) — ${timestamp}**\n\n${post.message}`;
+        // If we matched an RC user, just show the timestamp (user is the sender)
+        // If not matched, show the full header with Mattermost username
+        let messageText: string;
+        if (actualSender !== sender) {
+            messageText = `_${timestamp} (imported from Mattermost)_\n\n${post.message}`;
+        } else {
+            messageText = `**${displayName} (${username}) — ${timestamp}**\n\n${post.message}`;
+        }
 
         // Handle file attachments - download from Mattermost and upload to Rocket.Chat
         const uploadedFiles: string[] = [];
@@ -660,7 +712,7 @@ export class ImportCommand implements ISlashCommand {
         // Send the message (with or without file references)
         const messageBuilder = modify.getCreator().startMessage()
             .setRoom(room)
-            .setSender(sender)
+            .setSender(actualSender)
             .setText(messageText);
 
         // If this is a reply, set it as a thread reply
