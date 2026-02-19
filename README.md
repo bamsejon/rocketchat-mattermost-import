@@ -149,8 +149,15 @@ The app tracks imported messages per room/channel combination:
 
 ## Changelog
 
+### v2.6.0
+- **Email auto-matching**: Automatically matches Mattermost users to Rocket.Chat users by email address
+- Three mapping modes: email auto-match (recommended), username match, or manual JSON mapping
+- Requires RC admin credentials for email auto-matching (configured in app settings)
+- Falls back to manual mapping or freetext for unmatched users
+
 ### v2.5.0
-- User mapping: Mattermost users are matched to Rocket.Chat users via email
+- User mapping: Mattermost users are matched to Rocket.Chat users via username
+- Manual JSON mapping for non-matching usernames
 - Matched users appear as the actual sender instead of freetext
 - Unmatched users fall back to previous freetext behavior
 

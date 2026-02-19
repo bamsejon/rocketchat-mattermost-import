@@ -57,13 +57,48 @@ export class MattermostImportApp extends App {
 
         // User Mapping Settings
         await configuration.settings.provideSetting({
+            id: 'user_mapping_mode',
+            type: SettingType.SELECT,
+            packageValue: 'email_auto',
+            required: true,
+            public: false,
+            i18nLabel: 'User Mapping Mode',
+            i18nDescription: 'How to match Mattermost users to Rocket.Chat users',
+            values: [
+                { key: 'email_auto', i18nLabel: 'Auto-match by email (recommended)' },
+                { key: 'username', i18nLabel: 'Match by username' },
+                { key: 'manual', i18nLabel: 'Manual JSON mapping' },
+            ],
+        });
+
+        await configuration.settings.provideSetting({
+            id: 'rc_admin_user_id',
+            type: SettingType.STRING,
+            packageValue: '',
+            required: false,
+            public: false,
+            i18nLabel: 'Rocket.Chat Admin User ID',
+            i18nDescription: 'Admin user ID for looking up users by email. Required for email auto-matching. Find in Administration > Users > click admin user.',
+        });
+
+        await configuration.settings.provideSetting({
+            id: 'rc_admin_token',
+            type: SettingType.PASSWORD,
+            packageValue: '',
+            required: false,
+            public: false,
+            i18nLabel: 'Rocket.Chat Admin Auth Token',
+            i18nDescription: 'Admin auth token for looking up users by email. Required for email auto-matching. Generate via: Profile > My Account > Personal Access Tokens.',
+        });
+
+        await configuration.settings.provideSetting({
             id: 'user_mapping',
             type: SettingType.STRING,
             packageValue: '',
             required: false,
             public: false,
             i18nLabel: 'User Mapping (JSON)',
-            i18nDescription: 'JSON object mapping Mattermost usernames to Rocket.Chat usernames. Example: {"mm_user1": "rc_user1", "mm_user2": "rc_user2"}. Leave empty to match by identical username.',
+            i18nDescription: 'Manual JSON mapping. For "manual" mode: {"mm_username": "rc_username"}. For "email_auto" mode as fallback: {"mm_email@example.com": "rc_username"}.',
         });
 
         // Permission Settings

@@ -593,6 +593,8 @@ export class ImportCommand implements ISlashCommand {
         }
     }
 
+    private emailToRcUserCache: Map<string, string> | null = null;
+
     private async getUserMapping(read: IRead): Promise<Record<string, string>> {
         try {
             const mappingStr = await read.getEnvironmentReader().getSettings().getValueById('user_mapping') as string;
@@ -605,26 +607,123 @@ export class ImportCommand implements ISlashCommand {
         return {};
     }
 
-    private async getRocketChatUser(read: IRead, mmUsername: string): Promise<IUser | null> {
-        if (this.rcUserCache.has(mmUsername)) {
-            return this.rcUserCache.get(mmUsername) || null;
+    private async buildEmailToUsernameMap(http: IHttp, read: IRead): Promise<Map<string, string>> {
+        if (this.emailToRcUserCache) {
+            return this.emailToRcUserCache;
         }
 
-        // Check if there's a manual mapping for this username
-        const mapping = await this.getUserMapping(read);
-        const rcUsername = mapping[mmUsername] || mmUsername;
+        const map = new Map<string, string>();
+        const settings = read.getEnvironmentReader().getSettings();
+        const rcAdminUserId = await settings.getValueById('rc_admin_user_id') as string;
+        const rcAdminToken = await settings.getValueById('rc_admin_token') as string;
+
+        if (!rcAdminUserId || !rcAdminToken) {
+            this.app.getLogger().warn('RC admin credentials not configured - cannot do email-based user matching');
+            this.emailToRcUserCache = map;
+            return map;
+        }
+
+        // Get the RC site URL from server settings
+        const siteUrl = await read.getEnvironmentReader().getServerSettings().getValueById('Site_Url') as string;
+        if (!siteUrl) {
+            this.app.getLogger().warn('Could not determine Rocket.Chat site URL');
+            this.emailToRcUserCache = map;
+            return map;
+        }
 
         try {
-            const rcUser = await read.getUserReader().getByUsername(rcUsername);
-            if (rcUser) {
-                this.rcUserCache.set(mmUsername, rcUser);
-                return rcUser;
-            }
+            // Fetch all users from RC REST API (paginated)
+            let offset = 0;
+            const count = 100;
+            let total = 0;
+
+            do {
+                const response = await http.get(
+                    `${siteUrl}/api/v1/users.list?offset=${offset}&count=${count}&fields={"username":1,"emails":1}`,
+                    {
+                        headers: {
+                            'X-Auth-Token': rcAdminToken,
+                            'X-User-Id': rcAdminUserId,
+                        },
+                    }
+                );
+
+                if (response.statusCode !== 200 || !response.data) {
+                    this.app.getLogger().error(`Failed to fetch RC users: ${response.statusCode}`);
+                    break;
+                }
+
+                const users = response.data.users || [];
+                total = response.data.total || 0;
+
+                for (const user of users) {
+                    if (user.emails && user.emails.length > 0 && user.username) {
+                        for (const emailObj of user.emails) {
+                            if (emailObj.address) {
+                                map.set(emailObj.address.toLowerCase(), user.username);
+                            }
+                        }
+                    }
+                }
+
+                offset += count;
+            } while (offset < total);
+
+            this.app.getLogger().info(`Built email→username map with ${map.size} entries`);
         } catch (error) {
-            this.app.getLogger().debug(`No RC user found for username "${rcUsername}"`);
+            this.app.getLogger().error('Failed to build email-to-username map:', error);
         }
 
-        this.rcUserCache.set(mmUsername, null);
+        this.emailToRcUserCache = map;
+        return map;
+    }
+
+    private async getRocketChatUser(http: IHttp, read: IRead, mmUser: MattermostUser): Promise<IUser | null> {
+        const cacheKey = mmUser.id;
+        if (this.rcUserCache.has(cacheKey)) {
+            return this.rcUserCache.get(cacheKey) || null;
+        }
+
+        const settings = read.getEnvironmentReader().getSettings();
+        const mappingMode = await settings.getValueById('user_mapping_mode') as string || 'email_auto';
+        const manualMapping = await this.getUserMapping(read);
+
+        let rcUsername: string | null = null;
+
+        if (mappingMode === 'email_auto') {
+            // Try email auto-matching first
+            if (mmUser.email) {
+                const emailMap = await this.buildEmailToUsernameMap(http, read);
+                rcUsername = emailMap.get(mmUser.email.toLowerCase()) || null;
+            }
+            // Fall back to manual mapping (by email or username)
+            if (!rcUsername && mmUser.email && manualMapping[mmUser.email]) {
+                rcUsername = manualMapping[mmUser.email];
+            }
+            if (!rcUsername && manualMapping[mmUser.username]) {
+                rcUsername = manualMapping[mmUser.username];
+            }
+        } else if (mappingMode === 'manual') {
+            // Manual mapping only
+            rcUsername = manualMapping[mmUser.username] || manualMapping[mmUser.email] || null;
+        } else {
+            // Username matching
+            rcUsername = manualMapping[mmUser.username] || mmUser.username;
+        }
+
+        if (rcUsername) {
+            try {
+                const rcUser = await read.getUserReader().getByUsername(rcUsername);
+                if (rcUser) {
+                    this.rcUserCache.set(cacheKey, rcUser);
+                    return rcUser;
+                }
+            } catch (error) {
+                this.app.getLogger().debug(`No RC user found for username "${rcUsername}"`);
+            }
+        }
+
+        this.rcUserCache.set(cacheKey, null);
         return null;
     }
 
@@ -645,10 +744,10 @@ export class ImportCommand implements ISlashCommand {
             ? `${mmUser.first_name} ${mmUser.last_name}`
             : mmUser?.nickname || username;
 
-        // Try to map Mattermost user to Rocket.Chat user by username
+        // Try to map Mattermost user to Rocket.Chat user
         let actualSender = sender;
         if (mmUser) {
-            const rcUser = await this.getRocketChatUser(read, mmUser.username);
+            const rcUser = await this.getRocketChatUser(http, read, mmUser);
             if (rcUser) {
                 actualSender = rcUser;
             }
