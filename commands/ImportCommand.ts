@@ -623,10 +623,17 @@ export class ImportCommand implements ISlashCommand {
             return map;
         }
 
-        // Get the RC site URL from server settings
-        const siteUrl = await read.getEnvironmentReader().getServerSettings().getValueById('Site_Url') as string;
+        // Get the RC site URL - try app setting first, then server settings
+        let siteUrl = await settings.getValueById('rc_site_url') as string;
         if (!siteUrl) {
-            this.app.getLogger().warn('Could not determine Rocket.Chat site URL');
+            try {
+                siteUrl = await read.getEnvironmentReader().getServerSettings().getValueById('Site_Url') as string;
+            } catch (error) {
+                this.app.getLogger().error('Could not read Site_Url from server settings. Configure "Rocket.Chat Site URL" in app settings instead.');
+            }
+        }
+        if (!siteUrl) {
+            this.app.getLogger().warn('Could not determine Rocket.Chat site URL - configure it in app settings');
             this.emailToRcUserCache = map;
             return map;
         }
@@ -746,10 +753,16 @@ export class ImportCommand implements ISlashCommand {
 
         // Try to map Mattermost user to Rocket.Chat user
         let actualSender = sender;
+        let userMatched = false;
         if (mmUser) {
-            const rcUser = await this.getRocketChatUser(http, read, mmUser);
-            if (rcUser) {
-                actualSender = rcUser;
+            try {
+                const rcUser = await this.getRocketChatUser(http, read, mmUser);
+                if (rcUser) {
+                    actualSender = rcUser;
+                    userMatched = true;
+                }
+            } catch (error) {
+                this.app.getLogger().debug(`User mapping failed for ${mmUser.username}, using fallback`);
             }
         }
 

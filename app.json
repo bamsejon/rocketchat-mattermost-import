@@ -1,6 +1,6 @@
 {
     "id": "c7d4e8f9-3b2a-4c5d-9e1f-6a8b0d2c4e7f",
-    "version": "2.6.0",
+    "version": "2.6.1",
     "requiredApiVersion": "^1.41.0",
     "iconFile": "icon.png",
     "author": {
@@ -31,6 +31,9 @@
         },
         {
             "name": "user.read"
+        },
+        {
+            "name": "server-setting.read"
         }
     ]
 }

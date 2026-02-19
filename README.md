@@ -149,6 +149,12 @@ The app tracks imported messages per room/channel combination:
 
 ## Changelog
 
+### v2.6.1
+- **Fix: Missing `server-setting.read` permission** — caused all imports to fail with 320 errors
+- Added `server-setting.read` to app permissions for reading Site_Url
+- Added optional "Rocket.Chat Site URL" setting as fallback if server settings can't be read
+- Improved error handling: user mapping failures no longer crash the entire import
+
 ### v2.6.0
 - **Email auto-matching**: Automatically matches Mattermost users to Rocket.Chat users by email address
 - Three mapping modes: email auto-match (recommended), username match, or manual JSON mapping

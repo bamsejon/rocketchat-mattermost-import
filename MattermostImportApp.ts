@@ -72,6 +72,16 @@ export class MattermostImportApp extends App {
         });
 
         await configuration.settings.provideSetting({
+            id: 'rc_site_url',
+            type: SettingType.STRING,
+            packageValue: '',
+            required: false,
+            public: false,
+            i18nLabel: 'Rocket.Chat Site URL (optional)',
+            i18nDescription: 'Your Rocket.Chat URL (e.g., https://chat.example.com). Auto-detected from server settings if left empty.',
+        });
+
+        await configuration.settings.provideSetting({
             id: 'rc_admin_user_id',
             type: SettingType.STRING,
             packageValue: '',
