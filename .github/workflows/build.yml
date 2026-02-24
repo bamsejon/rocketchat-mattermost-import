@@ -1,0 +1,39 @@
+name: Build App
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Rocket.Chat app
+        run: npx rc-apps package
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mattermost-import-app
+          path: "*.zip"
+
+      - name: Create release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: "*.zip"
