@@ -916,8 +916,9 @@ export class ImportCommand implements ISlashCommand {
                 return 'skipped (could not determine Rocket.Chat URL)';
             }
 
-            // Build channel URL: use room name or ID
-            const rcChannelUrl = `${siteUrl}/channel/${room.slugifiedName || room.id}`;
+            // Build channel URL: /group/ for private, /channel/ for public
+            const urlType = room.type === 'p' ? 'group' : 'channel';
+            const rcChannelUrl = `${siteUrl}/${urlType}/${room.slugifiedName || room.id}`;
 
             // Call the Mattermost RC Migrate plugin API
             const pluginApiUrl = `${mattermostUrl}/plugins/se.bylund.mattermost-plugin-rc-migrate/api/v1/migrate`;
