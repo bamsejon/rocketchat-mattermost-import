@@ -22,7 +22,7 @@ A Rocket.Chat app that imports channel history from Mattermost with full threadi
 
 ### Quick Install (Recommended)
 
-1. **Download** the latest release from [Releases](https://github.com/bamsejon/rocketchat-mattermost-import/releases)
+1. **Download** the latest `.zip` from [Releases](https://github.com/bamsejon/rocketchat-mattermost-import/releases/latest)
 
 2. **Enable Apps in Rocket.Chat:**
    - Log in as administrator
@@ -147,7 +147,24 @@ The app tracks imported messages per room/channel combination:
 - Threading requires importing messages in chronological order
 - If parent messages were imported in a previous run, replies may not be linked
 
+## Mattermost Channel Redirect
+
+After importing a channel, the app can automatically activate a redirect on the source Mattermost channel so users are pointed to the new Rocket.Chat channel. This requires the [RC Migrate](https://github.com/bamsejon/mattermost-plugin-rc-migrate) Mattermost plugin (v1.1.0+).
+
+### Setup
+
+1. Install the [RC Migrate plugin](https://github.com/bamsejon/mattermost-plugin-rc-migrate/releases/latest) in Mattermost
+2. Configure an **API Secret** in the Mattermost plugin settings (System Console → Plugins → RC Migrate)
+3. In Rocket.Chat, go to **Administration → Apps → Mattermost Import → Settings**
+4. Enable **Mattermost Redirect** and enter the same API secret
+
+When you run `/importmattermost`, the source channel will automatically be blocked with a redirect message after the import completes.
+
 ## Changelog
+
+### v2.7.0
+- **Automatic Mattermost redirect**: After import, optionally activate the RC Migrate plugin on the source channel to redirect users to Rocket.Chat
+- New settings: Enable Mattermost Redirect, RC Migrate API Secret
 
 ### v2.6.1
 - **Fix: Missing `server-setting.read` permission** — caused all imports to fail with 320 errors
