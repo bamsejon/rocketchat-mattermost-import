@@ -111,6 +111,27 @@ export class MattermostImportApp extends App {
             i18nDescription: 'Manual JSON mapping. For "manual" mode: {"mm_username": "rc_username"}. For "email_auto" mode as fallback: {"mm_email@example.com": "rc_username"}.',
         });
 
+        // Redirect Settings (Mattermost RC Migrate plugin integration)
+        await configuration.settings.provideSetting({
+            id: 'enable_redirect',
+            type: SettingType.BOOLEAN,
+            packageValue: false,
+            required: false,
+            public: false,
+            i18nLabel: 'Enable Mattermost Redirect',
+            i18nDescription: 'After import, automatically activate the RC Migrate plugin on the source Mattermost channel to redirect users to this Rocket.Chat channel.',
+        });
+
+        await configuration.settings.provideSetting({
+            id: 'rc_migrate_api_secret',
+            type: SettingType.PASSWORD,
+            packageValue: '',
+            required: false,
+            public: false,
+            i18nLabel: 'RC Migrate API Secret',
+            i18nDescription: 'The API secret configured in the Mattermost RC Migrate plugin. Required when redirect is enabled.',
+        });
+
         // Permission Settings
         await configuration.settings.provideSetting({
             id: 'allowed_roles',

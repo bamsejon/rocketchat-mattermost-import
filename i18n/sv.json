@@ -17,5 +17,11 @@
     "setting_allowed_roles_description": "Kommaseparerad lista med roller som får använda importkommandot (t.ex. admin, moderator)",
 
     "setting_allowed_users_label": "Tillåtna användare",
-    "setting_allowed_users_description": "Kommaseparerad lista med användarnamn som får använda importkommandot (utöver tillåtna roller)"
+    "setting_allowed_users_description": "Kommaseparerad lista med användarnamn som får använda importkommandot (utöver tillåtna roller)",
+
+    "setting_enable_redirect_label": "Aktivera Mattermost-redirect",
+    "setting_enable_redirect_description": "Efter import, aktivera automatiskt RC Migrate-pluginet på Mattermost-källkanalen så att användare redirectas till denna Rocket.Chat-kanal.",
+
+    "setting_rc_migrate_api_secret_label": "RC Migrate API-nyckel",
+    "setting_rc_migrate_api_secret_description": "API-nyckeln som konfigurerats i Mattermost RC Migrate-pluginet. Krävs när redirect är aktiverat."
 }

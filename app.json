@@ -1,6 +1,6 @@
 {
     "id": "c7d4e8f9-3b2a-4c5d-9e1f-6a8b0d2c4e7f",
-    "version": "2.6.1",
+    "version": "2.7.0",
     "requiredApiVersion": "^1.41.0",
     "iconFile": "icon.png",
     "author": {
@@ -11,7 +11,7 @@
     "name": "Mattermost Import",
     "nameSlug": "mattermost-import",
     "classFile": "MattermostImportApp.ts",
-    "description": "Import channel history from Mattermost with user mapping, incremental sync, permission control, and admin token support",
+    "description": "Import channel history from Mattermost with user mapping, incremental sync, permission control, admin token support, and automatic source channel redirect",
     "implements": [],
     "permissions": [
         {

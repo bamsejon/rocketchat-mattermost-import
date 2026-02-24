@@ -347,6 +347,16 @@ export class ImportCommand implements ISlashCommand {
             }
 
             const totalImported = (importRecord?.totalImported || 0) + importedCount;
+
+            // Activate redirect on the Mattermost source channel if enabled
+            let redirectStatus = '';
+            const enableRedirect = await read.getEnvironmentReader().getSettings().getValueById('enable_redirect');
+            if (enableRedirect) {
+                redirectStatus = await this.activateMattermostRedirect(
+                    http, read, mattermostUrl, channelId, room, sender, modify
+                );
+            }
+
             await this.sendNotifyMessage(
                 room,
                 sender,
@@ -356,7 +366,8 @@ export class ImportCommand implements ISlashCommand {
                 `- Threaded replies: ${threadedCount}\n` +
                 `- Errors: ${errorCount}\n` +
                 `- Skipped (system messages): ${skippedCount}\n` +
-                `- Total imported to this room: ${totalImported} messages`
+                `- Total imported to this room: ${totalImported} messages` +
+                (redirectStatus ? `\n- Mattermost redirect: ${redirectStatus}` : '')
             );
 
         } catch (error) {
@@ -872,6 +883,70 @@ export class ImportCommand implements ISlashCommand {
         } catch (error) {
             this.app.getLogger().error('Get file info error:', error);
             return null;
+        }
+    }
+
+    private async activateMattermostRedirect(
+        http: IHttp,
+        read: IRead,
+        mattermostUrl: string,
+        mattermostChannelId: string,
+        room: IRoom,
+        sender: IUser,
+        modify: IModify,
+    ): Promise<string> {
+        try {
+            const settings = read.getEnvironmentReader().getSettings();
+            const apiSecret = await settings.getValueById('rc_migrate_api_secret') as string;
+
+            if (!apiSecret) {
+                return 'skipped (no API secret configured)';
+            }
+
+            // Build the Rocket.Chat channel URL
+            let siteUrl = await settings.getValueById('rc_site_url') as string;
+            if (!siteUrl) {
+                try {
+                    siteUrl = await read.getEnvironmentReader().getServerSettings().getValueById('Site_Url') as string;
+                } catch (error) {
+                    // ignore
+                }
+            }
+            if (!siteUrl) {
+                return 'skipped (could not determine Rocket.Chat URL)';
+            }
+
+            // Build channel URL: use room name or ID
+            const rcChannelUrl = `${siteUrl}/channel/${room.slugifiedName || room.id}`;
+
+            // Call the Mattermost RC Migrate plugin API
+            const pluginApiUrl = `${mattermostUrl}/plugins/se.bylund.mattermost-plugin-rc-migrate/api/v1/migrate`;
+
+            const response = await http.post(pluginApiUrl, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-Key': apiSecret,
+                },
+                data: {
+                    channel_id: mattermostChannelId,
+                    url: rcChannelUrl,
+                },
+            });
+
+            if (response.statusCode === 200) {
+                await this.sendNotifyMessage(
+                    room, sender, modify,
+                    `Mattermost channel redirect activated → ${rcChannelUrl}`
+                );
+                return 'activated';
+            } else {
+                const msg = response.data?.message || `HTTP ${response.statusCode}`;
+                this.app.getLogger().error(`RC Migrate API error: ${msg}`);
+                return `failed (${msg})`;
+            }
+        } catch (error) {
+            this.app.getLogger().error('Failed to activate Mattermost redirect:', error);
+            return `failed (${error instanceof Error ? error.message : 'unknown error'})`;
         }
     }
 

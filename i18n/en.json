@@ -17,5 +17,11 @@
     "setting_allowed_roles_description": "Comma-separated list of roles that can use the import command (e.g., admin, moderator)",
 
     "setting_allowed_users_label": "Allowed Users",
-    "setting_allowed_users_description": "Comma-separated list of usernames that can use the import command (in addition to allowed roles)"
+    "setting_allowed_users_description": "Comma-separated list of usernames that can use the import command (in addition to allowed roles)",
+
+    "setting_enable_redirect_label": "Enable Mattermost Redirect",
+    "setting_enable_redirect_description": "After import, automatically activate the RC Migrate plugin on the source Mattermost channel to redirect users to this Rocket.Chat channel.",
+
+    "setting_rc_migrate_api_secret_label": "RC Migrate API Secret",
+    "setting_rc_migrate_api_secret_description": "The API secret configured in the Mattermost RC Migrate plugin. Required when redirect is enabled."
 }
