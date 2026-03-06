@@ -23,5 +23,8 @@
     "setting_enable_redirect_description": "After import, automatically activate the RC Migrate plugin on the source Mattermost channel to redirect users to this Rocket.Chat channel.",
 
     "setting_rc_migrate_api_secret_label": "RC Migrate API Secret",
-    "setting_rc_migrate_api_secret_description": "The API secret configured in the Mattermost RC Migrate plugin. Required when redirect is enabled."
+    "setting_rc_migrate_api_secret_description": "The API secret configured in the Mattermost RC Migrate plugin. Required when redirect is enabled.",
+
+    "fixmm_description": "Fix Mattermost image links in imported messages by re-uploading files to Rocket.Chat",
+    "fixmm_params_example": "[mattermost-url]"
 }

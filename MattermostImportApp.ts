@@ -10,6 +10,7 @@ import { IAppInfo } from '@rocket.chat/apps-engine/definition/metadata';
 import { ISetting, SettingType } from '@rocket.chat/apps-engine/definition/settings';
 
 import { ImportCommand } from './commands/ImportCommand';
+import { FixImagesCommand } from './commands/FixImagesCommand';
 
 export class MattermostImportApp extends App {
     constructor(info: IAppInfo, logger: ILogger, accessors: IAppAccessors) {
@@ -17,8 +18,9 @@ export class MattermostImportApp extends App {
     }
 
     public async extendConfiguration(configuration: IConfigurationExtend): Promise<void> {
-        // Register slash command
+        // Register slash commands
         await configuration.slashCommands.provideSlashCommand(new ImportCommand(this));
+        await configuration.slashCommands.provideSlashCommand(new FixImagesCommand(this));
 
         // Authentication Settings
         await configuration.settings.provideSetting({
